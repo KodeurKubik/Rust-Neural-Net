@@ -1,0 +1,25 @@
+[package]
+name = "neuralnet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+parquet = "57"
+
+[dev-dependencies]
+criterion = { version = "0.8" }
+
+[[bench]]
+name = "matrix"
+harness = false
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.release.package."*"]
+opt-level = 3
