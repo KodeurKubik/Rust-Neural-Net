@@ -1,113 +1,171 @@
-use anyhow::{Result, anyhow};
+use crate::NUM;
+use rand::{RngExt, rng};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Not, Sub, SubAssign},
+};
 
-/// Product of two matrices
-/// matrix a has dimensions 'i x j' and b has dimensions 'j x k'
-/// output matrix will have dimensions 'i x k'
-pub fn matmul(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Result<Vec<Vec<f32>>> {
-    if a[0].len() != b.len() {
-        return Err(anyhow!("Invalid matrices size for multiplication"));
+#[derive(Clone, Debug, PartialEq)]
+pub struct Matrix<const ROWS: usize, const COLS: usize> {
+    pub data: [[NUM; COLS]; ROWS],
+}
+
+impl<const ROWS: usize, const COLS: usize> Display for Matrix<ROWS, COLS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{} Matrix: {:?}", ROWS, COLS, self.data)?;
+        Ok(())
+    }
+}
+
+impl<const ROWS: usize, const COLS: usize> From<[[NUM; COLS]; ROWS]> for Matrix<ROWS, COLS> {
+    fn from(data: [[NUM; COLS]; ROWS]) -> Self {
+        Self { data }
+    }
+}
+
+impl<const ROWS: usize, const COLS: usize> Matrix<ROWS, COLS> {
+    pub fn zero() -> Self {
+        Self {
+            data: [[0 as NUM; COLS]; ROWS],
+        }
     }
 
-    let mut result: Vec<Vec<f32>> = Vec::with_capacity(a.len());
+    pub fn random() -> Self {
+        let mut rng = rng();
+        let mut result = Self::zero();
 
-    for i in 0..a.len() {
-        let mut row: Vec<f32> = Vec::with_capacity(b[0].len());
-
-        for j in 0..b[0].len() {
-            let mut val = 0f32;
-
-            for elem in 0..b.len() {
-                val += a[i][elem] * b[elem][j];
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                result.data[i][j] = rng.random::<NUM>() * 2 as NUM - 1 as NUM;
             }
-
-            row.push(val);
         }
 
-        result.push(row);
+        result
     }
 
-    Ok(result)
+    /// flattens a matrix to a Vec
+    pub fn flatten(&self) -> Vec<NUM> {
+        self.data.iter().flatten().copied().collect()
+    }
+
+    /// transposes a 'i x j' matrix into 'j x i'
+    pub fn transpose(&self) -> Matrix<COLS, ROWS> {
+        let mut result = Matrix::<COLS, ROWS>::zero();
+
+        for i in 0..COLS {
+            for j in 0..ROWS {
+                result.data[i][j] = self.data[j][i];
+            }
+        }
+
+        result
+    }
+
+    /// Applies a function to each element of the matrix
+    pub fn map(&self, f: impl Fn(NUM) -> NUM) -> Self {
+        let mut result = self.clone();
+
+        for row in result.data.iter_mut() {
+            for elem in row {
+                *elem = f(*elem);
+            }
+        }
+
+        result
+    }
 }
 
-/// scalar the whole matrice by a f32
-pub fn scalar(a: &f32, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-    let mut result = b.clone();
+//
 
-    for row in &mut result {
-        for elem in row {
-            *elem *= a;
+impl<const ROWS: usize, const COLS: usize> AddAssign for Matrix<ROWS, COLS> {
+    fn add_assign(&mut self, rhs: Self) {
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                self.data[i][j] += rhs.data[i][j];
+            }
         }
     }
-
-    result
+}
+impl<const ROWS: usize, const COLS: usize> Add for Matrix<ROWS, COLS> {
+    type Output = Matrix<ROWS, COLS>;
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
 }
 
-/// just adds two matrices a and b together
-pub fn add(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-    let mut result = a.clone();
-
-    let mut i = 0usize;
-    for row in &mut result {
-        let mut j = 0usize;
-
-        for elem in row {
-            *elem += b[i][j];
-
-            j += 1;
+impl<const ROWS: usize, const COLS: usize> SubAssign for Matrix<ROWS, COLS> {
+    fn sub_assign(&mut self, rhs: Self) {
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                self.data[i][j] -= rhs.data[i][j];
+            }
         }
-
-        i += 1;
     }
-
-    result
+}
+impl<const ROWS: usize, const COLS: usize> Sub for Matrix<ROWS, COLS> {
+    type Output = Matrix<ROWS, COLS>;
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        self -= rhs;
+        self
+    }
 }
 
-/// just subs the matrix b from matrix a
-pub fn subtract(a: &Vec<Vec<f32>>, b: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-    let mut result = a.clone();
-
-    let mut i = 0usize;
-    for row in &mut result {
-        let mut j = 0usize;
-
-        for elem in row {
-            *elem -= b[i][j];
-
-            j += 1;
+impl<const ROWS: usize, const COLS: usize> MulAssign<NUM> for Matrix<ROWS, COLS> {
+    fn mul_assign(&mut self, rhs: NUM) {
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                self.data[i][j] *= rhs;
+            }
         }
-
-        i += 1;
     }
-
-    result
+}
+impl<const ROWS: usize, const COLS: usize> Mul<NUM> for Matrix<ROWS, COLS> {
+    type Output = Matrix<ROWS, COLS>;
+    fn mul(mut self, rhs: NUM) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+impl<const ROWS: usize, const COLS: usize> Mul<Matrix<ROWS, COLS>> for NUM {
+    type Output = Matrix<ROWS, COLS>;
+    fn mul(self, rhs: Matrix<ROWS, COLS>) -> Self::Output {
+        rhs * self
+    }
 }
 
-/// transposes a 'i x j' matrix into 'j x i'
-pub fn transpose(a: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-    let mut result = Vec::with_capacity(a[0].len());
-
-    for i in 0..a[0].len() {
-        let mut row = Vec::with_capacity(a.len());
-
-        for j in 0..a.len() {
-            row.push(a[j][i]);
+impl<const A: usize, const B: usize, const C: usize> Mul<Matrix<B, C>> for Matrix<A, B> {
+    type Output = Matrix<A, C>;
+    fn mul(self, rhs: Matrix<B, C>) -> Self::Output {
+        let mut result = Matrix::zero();
+        for i in 0..A {
+            for j in 0..C {
+                for k in 0..B {
+                    result.data[i][j] += self.data[i][k] * rhs.data[k][j];
+                }
+            }
         }
-
-        result.push(row);
+        result
     }
-
-    result
 }
 
-/// Applies a function to each element of the matrix
-pub fn map(a: &Vec<Vec<f32>>, f: impl Fn(f32) -> f32) -> Vec<Vec<f32>> {
-    let mut result = a.clone();
-
-    for row in &mut result {
-        for elem in row {
-            *elem = f(*elem);
-        }
+/// Using ! (not) as a shortcut to transpose
+impl<const ROWS: usize, const COLS: usize> Not for Matrix<ROWS, COLS> {
+    type Output = Matrix<COLS, ROWS>;
+    fn not(self) -> Self::Output {
+        self.transpose()
     }
+}
 
-    result
+impl<const ROWS: usize, const COLS: usize> Index<usize> for Matrix<ROWS, COLS> {
+    type Output = [NUM; COLS];
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl<const ROWS: usize, const COLS: usize> IndexMut<usize> for Matrix<ROWS, COLS> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
 }

@@ -1,36 +1,24 @@
-use crate::matrix;
+use crate::matrix::Matrix;
 
 // MatMul
 #[test]
 fn mul_2x2_2x1() {
-    let a = vec![vec![1f32, -2f32], vec![-1f32, 0f32]];
-    let b = vec![vec![3f32], vec![5f32]];
+    let a = Matrix::from([[1f64, -2f64], [-1f64, 0f64]]);
+    let b = Matrix::from([[3f64], [5f64]]);
 
-    let expect = vec![vec![-7f32], vec![-3f32]];
-    let res = matrix::matmul(&a, &b).unwrap();
+    let expect = Matrix::from([[-7f64], [-3f64]]);
+    let res = a * b;
 
     assert_eq!(res, expect);
 }
 
 #[test]
 fn mul_2x3_3x1() {
-    let a = vec![vec![1f32, -2f32, 9f32], vec![-1f32, 0f32, -4f32]];
-    let b = vec![vec![3f32], vec![5f32], vec![2f32]];
+    let a = Matrix::from([[1f64, -2f64, 9f64], [-1f64, 0f64, -4f64]]);
+    let b = Matrix::from([[3f64], [5f64], [2f64]]);
 
-    let expect = vec![vec![11f32], vec![-11f32]];
-    let res = matrix::matmul(&a, &b).unwrap();
-
-    assert_eq!(res, expect);
-}
-
-// Scalar
-#[test]
-fn scalar_2x2() {
-    let a = 3f32;
-    let b = vec![vec![1f32, -2f32], vec![-1f32, 0f32]];
-
-    let expect = vec![vec![3f32, -6f32], vec![-3f32, 0f32]];
-    let res = matrix::scalar(&a, &b);
+    let expect = Matrix::from([[11f64], [-11f64]]);
+    let res = a * b;
 
     assert_eq!(res, expect);
 }
@@ -38,11 +26,11 @@ fn scalar_2x2() {
 // Add
 #[test]
 fn add_2x2() {
-    let a = vec![vec![1f32, -2f32], vec![-1f32, 0f32]];
-    let b = vec![vec![0f32, 1f32], vec![1f32, 2f32]];
+    let a = Matrix::from([[1f64, -2f64], [-1f64, 0f64]]);
+    let b = Matrix::from([[0f64, 1f64], [1f64, 2f64]]);
 
-    let expect = vec![vec![1f32, -1f32], vec![0f32, 2f32]];
-    let res = matrix::add(&a, &b);
+    let expect = Matrix::from([[1f64, -1f64], [0f64, 2f64]]);
+    let res = a + b;
 
     assert_eq!(res, expect);
 }
@@ -50,11 +38,11 @@ fn add_2x2() {
 // subtract
 #[test]
 fn subtract_2x2() {
-    let a = vec![vec![1f32, -2f32], vec![-1f32, 0f32]];
-    let b = vec![vec![0f32, 1f32], vec![1f32, 2f32]];
+    let a = Matrix::from([[1f64, -2f64], [-1f64, 0f64]]);
+    let b = Matrix::from([[0f64, 1f64], [1f64, 2f64]]);
 
-    let expect = vec![vec![1f32, -3f32], vec![-2f32, -2f32]];
-    let res = matrix::subtract(&a, &b);
+    let expect = Matrix::from([[1f64, -3f64], [-2f64, -2f64]]);
+    let res = a - b;
 
     assert_eq!(res, expect);
 }
@@ -62,36 +50,36 @@ fn subtract_2x2() {
 // Transpose
 #[test]
 fn transpose_2x2() {
-    let a = vec![vec![1f32, -2f32], vec![-1f32, 0f32]];
+    let a = Matrix::from([[1f64, -2f64], [-1f64, 0f64]]);
 
-    let expect = vec![vec![1f32, -1f32], vec![-2f32, 0f32]];
-    let res = matrix::transpose(&a);
+    let expect = Matrix::from([[1f64, -1f64], [-2f64, 0f64]]);
+    let res = a.transpose();
 
     assert_eq!(res, expect);
 }
 
 #[test]
 fn transpose_2x3() {
-    let a = vec![vec![1f32, -2f32, 9f32], vec![-1f32, 0f32, -4f32]];
+    let a = Matrix::from([[1f64, -2f64, 9f64], [-1f64, 0f64, -4f64]]);
 
-    let expect = vec![vec![1f32, -1f32], vec![-2f32, 0f32], vec![9f32, -4f32]];
-    let res = matrix::transpose(&a);
+    let expect = Matrix::from([[1f64, -1f64], [-2f64, 0f64], [9f64, -4f64]]);
+    let res = a.transpose();
 
     assert_eq!(res, expect);
 }
 
 #[test]
 fn map_2x3() {
-    let a = vec![vec![1f32, -2f32, 9f32], vec![-1f32, 0f32, -4f32]];
+    let a = Matrix::from([[1f64, -2f64, 9f64], [-1f64, 0f64, -4f64]]);
 
-    let expect = vec![vec![1f32, -1f32, 1f32], vec![-1f32, 0f32, -1f32]];
-    let res = matrix::map(&a, |a| {
-        if a <= -1f32 {
-            return -1f32;
-        } else if a == 0f32 {
-            return 0f32;
+    let expect = Matrix::from([[1f64, -1f64, 1f64], [-1f64, 0f64, -1f64]]);
+    let res = a.map(|a| {
+        if a <= -1f64 {
+            return -1f64;
+        } else if a == 0f64 {
+            return 0f64;
         } else {
-            return 1f32;
+            return 1f64;
         }
     });
 

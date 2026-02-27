@@ -6,13 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 parquet = "57"
-
-[dev-dependencies]
-criterion = { version = "0.8" }
-
-[[bench]]
-name = "matrix"
-harness = false
+rand = "0.10"
 
 [profile.release]
 opt-level = "s"
