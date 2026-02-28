@@ -15,6 +15,7 @@ use std::path::Path;
 
 const LEARNING_RATE: NUM = 0.0001;
 const ITERATIONS: usize = 11;
+const BATCH_SIZE: usize = 64;
 
 fn main() {
     let mut net = Network::new(LEARNING_RATE)
@@ -35,6 +36,11 @@ fn main() {
             .collect()
     };
 
+    let (inputs, labels): (Vec<Matrix<784, 1>>, Vec<usize>) = rows
+        .iter()
+        .map(|(bytes, label)| (to_input(bytes), *label))
+        .unzip();
+
     let test_rows: Vec<(Vec<u8>, usize)> = {
         let reader = data::read_parquet(&Path::new("./test.parquet")).unwrap();
         reader
@@ -44,18 +50,19 @@ fn main() {
             .collect()
     };
 
+    let (test_inputs, test_labels): (Vec<Matrix<784, 1>>, Vec<usize>) = test_rows
+        .iter()
+        .map(|(bytes, label)| (to_input(bytes), *label))
+        .unzip();
+
     for i in 0..ITERATIONS {
-        for (bytes, label) in &rows {
-            net.fit(to_input(bytes), *label);
+        for (inputs_batch, labels_batch) in inputs.chunks(BATCH_SIZE).zip(labels.chunks(BATCH_SIZE))
+        {
+            net.fit_batch(inputs_batch.to_vec(), labels_batch.to_vec());
         }
 
         if i % 10 == 0 {
-            let (inputs, correct_indices): (Vec<Matrix<784, 1>>, Vec<usize>) = test_rows
-                .iter()
-                .map(|(bytes, label)| (to_input(bytes), *label))
-                .unzip();
-
-            let losses = net.loss_batch(inputs, correct_indices);
+            let losses = net.loss_batch(test_inputs.clone(), test_labels.clone());
             let avg_loss: NUM = losses.iter().sum::<NUM>() / losses.len() as NUM;
 
             println!("Iteration {i}, avg_loss={avg_loss}");
@@ -83,7 +90,8 @@ fn to_input(bytes: &Vec<u8>) -> Matrix<784, 1> {
     let mut ready_pixels = [0 as NUM; 784];
     ready_pixels.copy_from_slice(&pixels);
 
-    !Matrix::from([ready_pixels])
+    let data: [[NUM; 1]; 784] = std::array::from_fn(|i| [ready_pixels[i]]);
+    Matrix::from(data)
 }
 
 fn parse_row(row: Row) -> Option<(Vec<u8>, usize)> {

@@ -74,14 +74,19 @@ where
         self.layers.forward(input)
     }
 
-    pub fn fit(&mut self, input: Matrix<IN, 1>, correct_index: usize) {
-        let output = self.forward(input).softmax();
+    pub fn fit_batch(&mut self, inputs: Vec<Matrix<IN, 1>>, correct_indices: Vec<usize>) {
+        let batch_size = correct_indices.len();
+        
+        for (input, correct_index) in inputs.into_iter().zip(correct_indices.into_iter()) {
+            let output = self.forward(input).softmax();
+            let mut correct_mat = Matrix::zero();
+            correct_mat[correct_index][0] = 1 as NUM;
+            let delta = output - correct_mat;
 
-        let mut correct_mat = Matrix::zero();
-        correct_mat[correct_index][0] = 1 as NUM;
-        let delta = output - correct_mat;
+            self.layers.accumulate(delta);
+        }
 
-        self.layers.backprop(self.learning_rate, delta);
+        self.layers.apply(self.learning_rate, batch_size);
     }
 }
 
