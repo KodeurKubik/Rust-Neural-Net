@@ -1,3 +1,9 @@
+[workspace]
+members = [
+  "mnist"
+]
+resolver = "3"
+
 [package]
 name = "neuralnet"
 version = "0.1.0"
@@ -7,13 +13,14 @@ edition = "2024"
 anyhow = "1"
 parquet = "57"
 rand = "0.10"
+bincode = "1"
+serde = { version = "1", features = ["derive"] }
+rayon = "1"
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 lto = true
 codegen-units = 1
-strip = true
-panic = "abort"
 
 [profile.release.package."*"]
 opt-level = 3

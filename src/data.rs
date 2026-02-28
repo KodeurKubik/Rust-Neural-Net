@@ -1,10 +1,11 @@
-// use parquet::file::reader::{FileReader, SerializedFileReader};
-// use std::fs::File;
-// use std::path::Path;
+use anyhow::Result;
+use parquet::file::reader::SerializedFileReader;
+use std::fs::File;
+use std::path::Path;
 
-// let file = File::open(&Path::new("./data/mnist/train.parquet")).unwrap();
-// let reader = SerializedFileReader::new(file).unwrap();
-// let mut iter = reader.get_row_iter(None).unwrap();
-// while let Some(record) = iter.next() {
-//     println!("{}", record.unwrap());
-// }
+pub fn read_parquet(path: &Path) -> Result<SerializedFileReader<File>> {
+    let file = File::open(path)?;
+    let reader = SerializedFileReader::new(file)?;
+
+    Ok(reader)
+}

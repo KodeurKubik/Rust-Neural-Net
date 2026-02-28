@@ -13,11 +13,13 @@ impl Softmax for Vec<NUM> {
 
 impl<const N: usize> Softmax for Matrix<N, 1> {
     fn softmax(&self) -> Self {
-        let sum: NUM = self.data.iter().map(|x| x[0].exp()).sum();
+        let exps: Vec<NUM> = (0..N).map(|i| self.data[i][0].exp()).collect();
+        let sum: NUM = exps.iter().sum();
+
         let mut result = Matrix::zero();
 
         for i in 0..N {
-            result.data[i][0] = self.data[i][0].exp() / sum;
+            result.data[i][0] = exps[i] / sum;
         }
 
         result
