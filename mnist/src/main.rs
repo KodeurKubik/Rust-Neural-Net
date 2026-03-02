@@ -1,12 +1,12 @@
 use image::ImageReader;
 use neuralnet::matrix::Matrix;
+use neuralnet::optimizers::AdamBuilder;
 use neuralnet::parquet::file::reader::FileReader;
 use neuralnet::parquet::record::{Field, Row};
 use neuralnet::{
     NUM,
     activation::{Linear, ReLU},
     data,
-    layer::Layer,
     network::Network,
 };
 use neuralnet::{load_model, save_model};
@@ -14,13 +14,13 @@ use std::io::Cursor;
 use std::path::Path;
 
 const LEARNING_RATE: NUM = 0.0001;
-const ITERATIONS: usize = 11;
+const ITERATIONS: usize = 101;
 const BATCH_SIZE: usize = 64;
 
 fn main() {
-    let mut net = Network::new(LEARNING_RATE)
-        .add_layer(Layer::<784, 128, ReLU>::new())
-        .add_layer(Layer::<128, 10, Linear>::new());
+    let mut net = Network::new(AdamBuilder::new(LEARNING_RATE))
+        .input_layer::<784, 128, ReLU>()
+        .add_layer::<10, Linear>();
 
     let model_path = Path::new("./model.bin");
     if let Err(_) = load_model(&mut net, model_path) {
@@ -28,7 +28,7 @@ fn main() {
     }
 
     let rows: Vec<(Vec<u8>, usize)> = {
-        let reader = data::read_parquet(&Path::new("./train.parquet")).unwrap();
+        let reader = data::read_parquet(&Path::new("./data/train.parquet")).unwrap();
         reader
             .get_row_iter(None)
             .unwrap()
@@ -42,7 +42,7 @@ fn main() {
         .unzip();
 
     let test_rows: Vec<(Vec<u8>, usize)> = {
-        let reader = data::read_parquet(&Path::new("./test.parquet")).unwrap();
+        let reader = data::read_parquet(&Path::new("./data/test.parquet")).unwrap();
         reader
             .get_row_iter(None)
             .unwrap()
@@ -66,8 +66,6 @@ fn main() {
             let avg_loss: NUM = losses.iter().sum::<NUM>() / losses.len() as NUM;
 
             println!("Iteration {i}, avg_loss={avg_loss}");
-        } else {
-            println!("Iteration {i}");
         }
     }
 

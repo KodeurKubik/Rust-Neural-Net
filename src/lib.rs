@@ -5,6 +5,7 @@ pub mod data;
 pub mod layer;
 pub mod matrix;
 pub mod network;
+pub mod optimizers;
 
 pub use parquet;
 
@@ -17,8 +18,8 @@ use crate::network::Network;
 use anyhow::Result;
 use std::path::Path;
 
-pub fn save_model<const IN: usize, const OUT: usize, L: serde::Serialize>(
-    network: &Network<IN, OUT, L>,
+pub fn save_model<const IN: usize, const OUT: usize, L: serde::Serialize, O: serde::Serialize>(
+    network: &Network<IN, OUT, L, O>,
     path: &Path,
 ) -> Result<()> {
     let bytes = bincode::serialize(network)?;
@@ -27,12 +28,17 @@ pub fn save_model<const IN: usize, const OUT: usize, L: serde::Serialize>(
     Ok(())
 }
 
-pub fn load_model<const IN: usize, const OUT: usize, L: serde::de::DeserializeOwned>(
-    network: &mut Network<IN, OUT, L>,
+pub fn load_model<
+    const IN: usize,
+    const OUT: usize,
+    L: serde::de::DeserializeOwned,
+    O: serde::de::DeserializeOwned,
+>(
+    network: &mut Network<IN, OUT, L, O>,
     path: &Path,
 ) -> Result<()> {
     let bytes = std::fs::read(path)?;
-    let loaded: Network<IN, OUT, L> = bincode::deserialize(&bytes)?;
+    let loaded: Network<IN, OUT, L, O> = bincode::deserialize(&bytes)?;
     *network = loaded;
 
     Ok(())

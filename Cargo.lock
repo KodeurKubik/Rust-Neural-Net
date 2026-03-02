@@ -984,6 +984,7 @@ dependencies = [
  "bincode",
  "parquet",
  "rand 0.10.0",
+ "rand_distr",
  "rayon",
  "serde",
 ]
@@ -993,6 +994,13 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "newsclassifier"
+version = "0.1.0"
+dependencies = [
+ "neuralnet",
+]
 
 [[package]]
 name = "nom"
@@ -1280,6 +1288,16 @@ name = "rand_core"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c8d0fd677905edcbeedbf2edb6494d676f0e98d54d5cf9bda0b061cb8fb8aba"
+
+[[package]]
+name = "rand_distr"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d431c2703ccf129de4d45253c03f49ebb22b97d6ad79ee3ecfc7e3f4862c1d8"
+dependencies = [
+ "num-traits",
+ "rand 0.10.0",
+]
 
 [[package]]
 name = "rav1e"

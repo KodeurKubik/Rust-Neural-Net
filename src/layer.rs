@@ -1,25 +1,45 @@
-use crate::{NUM, activation::Activation, matrix::Matrix};
+use crate::{
+    NUM,
+    activation::Activation,
+    matrix::Matrix,
+    optimizers::{Optimizer, OptimizerFactory},
+};
+use rand::RngExt;
 
-pub struct Layer<const INPUT: usize, const OUTPUT: usize, A: Activation> {
+pub struct Layer<const INPUT: usize, const OUTPUT: usize, A: Activation, O: OptimizerFactory> {
     weight: Matrix<OUTPUT, INPUT>,
     bias: Matrix<OUTPUT, 1>,
+
     cache_input: Option<Matrix<INPUT, 1>>,
     cache_pre: Option<Matrix<OUTPUT, 1>>,
     grad_weight: Option<Matrix<OUTPUT, INPUT>>,
     grad_bias: Option<Matrix<OUTPUT, 1>>,
+
     activation: std::marker::PhantomData<A>,
+    weight_optim: O::Output<OUTPUT, INPUT>,
+    bias_optim: O::Output<OUTPUT, 1>,
 }
 
-impl<const INPUT: usize, const OUTPUT: usize, A: Activation> Layer<INPUT, OUTPUT, A> {
-    pub fn new() -> Self {
+impl<const INPUT: usize, const OUTPUT: usize, A: Activation, O: OptimizerFactory>
+    Layer<INPUT, OUTPUT, A, O>
+{
+    pub fn new(optimizer_factory: &O) -> Self {
         Self {
-            weight: Matrix::random(),
-            bias: Matrix::random(),
+            weight: {
+                let dist = rand_distr::Normal::new(0.0, (2.0 / INPUT as NUM).sqrt()).unwrap();
+                let mut rng = rand::rng();
+                Matrix::zero().map_mut(|_| rng.sample(dist))
+            },
+            bias: Matrix::zero(),
+
             cache_input: None,
             cache_pre: None,
             grad_weight: None,
             grad_bias: None,
+
             activation: std::marker::PhantomData,
+            weight_optim: optimizer_factory.generate(),
+            bias_optim: optimizer_factory.generate(),
         }
     }
 
@@ -64,15 +84,14 @@ impl<const INPUT: usize, const OUTPUT: usize, A: Activation> Layer<INPUT, OUTPUT
         delta_prev
     }
 
-    pub fn apply(&mut self, learning_rate: NUM, batch_size: usize) {
-        if let Some(mut grad_weight) = self.grad_weight.take() {
-            grad_weight *= learning_rate / batch_size as NUM;
-            self.weight -= grad_weight;
+    pub fn apply(&mut self, batch_size: usize) {
+        if let Some(grad_weight) = self.grad_weight.take() {
+            self.weight_optim
+                .step(&mut self.weight, grad_weight, batch_size);
         }
 
-        if let Some(mut grad_bias) = self.grad_bias.take() {
-            grad_bias *= learning_rate / batch_size as NUM;
-            self.bias -= grad_bias;
+        if let Some(grad_bias) = self.grad_bias.take() {
+            self.bias_optim.step(&mut self.bias, grad_bias, batch_size);
         }
     }
 }
@@ -81,11 +100,11 @@ pub trait LayerT<const IN: usize, const OUT: usize> {
     fn predict(&self, input: Matrix<IN, 1>) -> Matrix<OUT, 1>;
     fn forward(&mut self, input: Matrix<IN, 1>) -> Matrix<OUT, 1>;
     fn accumulate(&mut self, delta: Matrix<OUT, 1>) -> Matrix<IN, 1>;
-    fn apply(&mut self, learning_rate: NUM, batch_size: usize);
+    fn apply(&mut self, batch_size: usize);
 }
 
-impl<const IN: usize, const MID: usize, const OUT: usize, A: Activation, T> LayerT<IN, OUT>
-    for (T, Layer<MID, OUT, A>)
+impl<const IN: usize, const MID: usize, const OUT: usize, A: Activation, T, O: OptimizerFactory>
+    LayerT<IN, OUT> for (T, Layer<MID, OUT, A, O>)
 where
     T: LayerT<IN, MID>,
 {
@@ -101,13 +120,15 @@ where
         let mid = Layer::accumulate(&mut self.1, delta);
         self.0.accumulate(mid)
     }
-    fn apply(&mut self, learning_rate: NUM, batch_size: usize) {
-        Layer::apply(&mut self.1, learning_rate, batch_size);
-        self.0.apply(learning_rate, batch_size);
+    fn apply(&mut self, batch_size: usize) {
+        Layer::apply(&mut self.1, batch_size);
+        self.0.apply(batch_size);
     }
 }
 
-impl<const IN: usize, const OUT: usize, A: Activation> LayerT<IN, OUT> for Layer<IN, OUT, A> {
+impl<const IN: usize, const OUT: usize, A: Activation, O: OptimizerFactory> LayerT<IN, OUT>
+    for Layer<IN, OUT, A, O>
+{
     fn predict(&self, input: Matrix<IN, 1>) -> Matrix<OUT, 1> {
         Layer::predict(&self, input)
     }
@@ -117,8 +138,8 @@ impl<const IN: usize, const OUT: usize, A: Activation> LayerT<IN, OUT> for Layer
     fn accumulate(&mut self, delta: Matrix<OUT, 1>) -> Matrix<IN, 1> {
         Layer::accumulate(self, delta)
     }
-    fn apply(&mut self, learning_rate: NUM, batch_size: usize) {
-        Layer::apply(self, learning_rate, batch_size);
+    fn apply(&mut self, batch_size: usize) {
+        Layer::apply(self, batch_size);
     }
 }
 
@@ -132,40 +153,50 @@ impl<const N: usize> LayerT<N, N> for () {
     fn accumulate(&mut self, _delta: Matrix<N, 1>) -> Matrix<N, 1> {
         Matrix::zero()
     }
-    fn apply(&mut self, _learning_rate: NUM, _batch_size: usize) {}
+    fn apply(&mut self, _batch_size: usize) {}
 }
 
 //
 
-impl<const INPUT: usize, const OUTPUT: usize, A: Activation> serde::Serialize
-    for Layer<INPUT, OUTPUT, A>
+impl<const INPUT: usize, const OUTPUT: usize, A: Activation, O: OptimizerFactory> serde::Serialize
+    for Layer<INPUT, OUTPUT, A, O>
+where
+    O::Output<OUTPUT, INPUT>: serde::Serialize,
+    O::Output<OUTPUT, 1>: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("Layer", 2)?;
+        let mut state = serializer.serialize_struct("Layer", 4)?;
         state.serialize_field("weight", &self.weight)?;
         state.serialize_field("bias", &self.bias)?;
+        state.serialize_field("weight_optim", &self.weight_optim)?;
+        state.serialize_field("bias_optim", &self.bias_optim)?;
         state.end()
     }
 }
 
-impl<'de, const INPUT: usize, const OUTPUT: usize, A: Activation> serde::Deserialize<'de>
-    for Layer<INPUT, OUTPUT, A>
+impl<'de, const INPUT: usize, const OUTPUT: usize, A: Activation, O: OptimizerFactory>
+    serde::Deserialize<'de> for Layer<INPUT, OUTPUT, A, O>
+where
+    O::Output<OUTPUT, INPUT>: serde::de::DeserializeOwned,
+    O::Output<OUTPUT, 1>: serde::de::DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         #[derive(serde::Deserialize)]
-        struct LayerData<const INPUT: usize, const OUTPUT: usize> {
+        struct LayerData<const INPUT: usize, const OUTPUT: usize, W, B> {
             weight: Matrix<OUTPUT, INPUT>,
             bias: Matrix<OUTPUT, 1>,
+            weight_optim: W,
+            bias_optim: B,
         }
 
-        let data = LayerData::<INPUT, OUTPUT>::deserialize(deserializer)?;
+        let data = LayerData::<INPUT, OUTPUT, O::Output<OUTPUT, INPUT>, O::Output<OUTPUT, 1>>::deserialize(deserializer)?;
 
         Ok(Self {
             weight: data.weight,
@@ -175,6 +206,67 @@ impl<'de, const INPUT: usize, const OUTPUT: usize, A: Activation> serde::Deseria
             grad_weight: None,
             grad_bias: None,
             activation: std::marker::PhantomData,
+            bias_optim: data.bias_optim,
+            weight_optim: data.weight_optim,
         })
+    }
+}
+
+//
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Dropout<const N: usize> {
+    rate: NUM,
+    mask: Option<Matrix<N, 1>>,
+}
+
+impl<const N: usize> Dropout<N> {
+    pub fn new(rate: NUM) -> Self {
+        Self { rate, mask: None }
+    }
+}
+
+impl<const N: usize> LayerT<N, N> for Dropout<N> {
+    fn forward(&mut self, input: Matrix<N, 1>) -> Matrix<N, 1> {
+        let dist = rand_distr::Bernoulli::new(self.rate as f64).unwrap();
+        let mut rng = rand::rng();
+
+        let mask = input
+            .clone()
+            .map_mut(|_| if rng.sample(dist) { 0.0 } else { 1.0 });
+
+        let scale = 1.0 / (1.0 - self.rate);
+        let output = input.elementmul(mask.clone()) * scale;
+        self.mask = Some(mask);
+        output
+    }
+
+    fn predict(&self, input: Matrix<N, 1>) -> Matrix<N, 1> {
+        input
+    }
+
+    fn accumulate(&mut self, delta: Matrix<N, 1>) -> Matrix<N, 1> {
+        let mask = self.mask.take().unwrap();
+        delta.elementmul(mask)
+    }
+
+    fn apply(&mut self, _batch_size: usize) {}
+}
+
+impl<const IN: usize, const N: usize, T: LayerT<IN, N>> LayerT<IN, N> for (T, Dropout<N>) {
+    fn predict(&self, input: Matrix<IN, 1>) -> Matrix<N, 1> {
+        let mid = self.0.predict(input);
+        self.1.predict(mid)
+    }
+    fn forward(&mut self, input: Matrix<IN, 1>) -> Matrix<N, 1> {
+        let mid = self.0.forward(input);
+        self.1.forward(mid)
+    }
+    fn accumulate(&mut self, delta: Matrix<N, 1>) -> Matrix<IN, 1> {
+        let mid = self.1.accumulate(delta);
+        self.0.accumulate(mid)
+    }
+    fn apply(&mut self, batch_size: usize) {
+        self.0.apply(batch_size);
     }
 }

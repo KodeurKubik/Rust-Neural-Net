@@ -1,42 +1,67 @@
 use crate::{
     NUM,
     activation::{Activation, Softmax},
-    layer::{Layer, LayerT},
+    layer::{Dropout, Layer, LayerT},
     matrix::Matrix,
+    optimizers::OptimizerFactory,
 };
 
-pub struct NetworkBuilder {
-    learning_rate: NUM,
+pub struct NetworkBuilder<O> {
+    optimizer: O,
 }
 
-impl NetworkBuilder {
-    pub fn add_layer<const IN: usize, const OUT: usize, A: Activation>(
+impl<O: Clone> NetworkBuilder<O> {
+    pub fn input_layer<const IN: usize, const OUT: usize, A: Activation>(
         self,
-        layer: Layer<IN, OUT, A>,
-    ) -> Network<IN, OUT, ((), Layer<IN, OUT, A>)> {
+    ) -> Network<IN, OUT, ((), Layer<IN, OUT, A, O>), O>
+    where
+        O: OptimizerFactory + Clone,
+    {
         Network {
-            layers: ((), layer),
-            learning_rate: self.learning_rate,
+            layers: ((), Layer::new(&self.optimizer)),
+            optimizer: self.optimizer,
         }
     }
 }
 
 //
 
-pub struct Network<const IN: usize, const OUT: usize, L> {
+pub struct Network<const IN: usize, const OUT: usize, L, O> {
     layers: L,
-    learning_rate: NUM,
+    optimizer: O,
 }
 
-impl Network<0, 0, ()> {
-    pub fn new(learning_rate: NUM) -> NetworkBuilder {
-        NetworkBuilder { learning_rate }
+impl<O> Network<0, 0, (), O> {
+    pub fn new(optimizer: O) -> NetworkBuilder<O> {
+        NetworkBuilder { optimizer }
     }
 }
 
-impl<const IN: usize, const OUT: usize, L> Network<IN, OUT, L>
+impl<const IN: usize, const OUT: usize, L, O: Clone> Network<IN, OUT, L, O> {
+    pub fn add_layer<const NEW_OUT: usize, A: Activation>(
+        self,
+    ) -> Network<IN, NEW_OUT, (L, Layer<OUT, NEW_OUT, A, O>), O>
+    where
+        O: OptimizerFactory + Clone,
+    {
+        Network {
+            layers: (self.layers, Layer::new(&self.optimizer)),
+            optimizer: self.optimizer,
+        }
+    }
+
+    pub fn add_dropout(self, rate: NUM) -> Network<IN, OUT, (L, Dropout<OUT>), O> {
+        Network {
+            layers: (self.layers, Dropout::new(rate)),
+            optimizer: self.optimizer,
+        }
+    }
+}
+
+impl<const IN: usize, const OUT: usize, L, O> Network<IN, OUT, L, O>
 where
     L: LayerT<IN, OUT>,
+    O: Sync,
 {
     pub fn predict(&self, input: Matrix<IN, 1>) -> Matrix<OUT, 1> {
         self.layers.predict(input).softmax()
@@ -54,7 +79,7 @@ where
     }
 
     pub fn loss(&self, input: Matrix<IN, 1>, correct_index: usize) -> NUM {
-        let output = self.predict(input).softmax();
+        let output = self.predict(input);
         let loss = -output[correct_index][0].ln();
         loss
     }
@@ -76,7 +101,7 @@ where
 
     pub fn fit_batch(&mut self, inputs: Vec<Matrix<IN, 1>>, correct_indices: Vec<usize>) {
         let batch_size = correct_indices.len();
-        
+
         for (input, correct_index) in inputs.into_iter().zip(correct_indices.into_iter()) {
             let output = self.forward(input).softmax();
             let mut correct_mat = Matrix::zero();
@@ -86,26 +111,14 @@ where
             self.layers.accumulate(delta);
         }
 
-        self.layers.apply(self.learning_rate, batch_size);
-    }
-}
-
-impl<const IN: usize, const OUT: usize, L> Network<IN, OUT, L> {
-    pub fn add_layer<const NEW_OUT: usize, A: Activation>(
-        self,
-        layer: Layer<OUT, NEW_OUT, A>,
-    ) -> Network<IN, NEW_OUT, (L, Layer<OUT, NEW_OUT, A>)> {
-        Network {
-            layers: (self.layers, layer),
-            learning_rate: self.learning_rate,
-        }
+        self.layers.apply(batch_size);
     }
 }
 
 //
 
-impl<const IN: usize, const OUT: usize, L: serde::Serialize> serde::Serialize
-    for Network<IN, OUT, L>
+impl<const IN: usize, const OUT: usize, L: serde::Serialize, O: serde::Serialize> serde::Serialize
+    for Network<IN, OUT, L, O>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -114,29 +127,34 @@ impl<const IN: usize, const OUT: usize, L: serde::Serialize> serde::Serialize
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("Network", 2)?;
         state.serialize_field("layers", &self.layers)?;
-        state.serialize_field("learning_rate", &self.learning_rate)?;
+        state.serialize_field("optimizer", &self.optimizer)?;
         state.end()
     }
 }
 
-impl<'de, const IN: usize, const OUT: usize, L: serde::de::DeserializeOwned> serde::Deserialize<'de>
-    for Network<IN, OUT, L>
+impl<
+    'de,
+    const IN: usize,
+    const OUT: usize,
+    L: serde::de::DeserializeOwned,
+    O: serde::de::DeserializeOwned,
+> serde::Deserialize<'de> for Network<IN, OUT, L, O>
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         #[derive(serde::Deserialize)]
-        struct NetworkData<L> {
+        struct NetworkData<L, O> {
             layers: L,
-            learning_rate: NUM,
+            optimizer: O,
         }
 
-        let data = NetworkData::<L>::deserialize(deserializer)?;
+        let data = NetworkData::<L, O>::deserialize(deserializer)?;
 
         Ok(Self {
             layers: data.layers,
-            learning_rate: data.learning_rate,
+            optimizer: data.optimizer,
         })
     }
 }

@@ -1,5 +1,4 @@
 use crate::NUM;
-use rand::{RngExt, rng};
 use std::{
     fmt::Display,
     ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Not, Sub, SubAssign},
@@ -32,19 +31,6 @@ impl<const ROWS: usize, const COLS: usize> Matrix<ROWS, COLS> {
         }
     }
 
-    pub fn random() -> Self {
-        let mut rng = rng();
-        let mut result = Self::zero();
-
-        for i in 0..ROWS {
-            for j in 0..COLS {
-                result.data[i][j] = rng.random::<NUM>() * 2 as NUM - 1 as NUM;
-            }
-        }
-
-        result
-    }
-
     /// flattens a matrix to a Vec
     pub fn flatten(&self) -> Vec<NUM> {
         self.data.iter().flatten().copied().collect()
@@ -65,6 +51,16 @@ impl<const ROWS: usize, const COLS: usize> Matrix<ROWS, COLS> {
 
     /// Applies a function to each element of the matrix
     pub fn map(mut self, f: impl Fn(NUM) -> NUM) -> Self {
+        for row in self.data.iter_mut() {
+            for elem in row {
+                *elem = f(*elem);
+            }
+        }
+
+        self
+    }
+    /// Applies a function to each element of the matrix
+    pub fn map_mut(mut self, mut f: impl FnMut(NUM) -> NUM) -> Self {
         for row in self.data.iter_mut() {
             for elem in row {
                 *elem = f(*elem);
