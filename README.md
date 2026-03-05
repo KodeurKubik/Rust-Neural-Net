@@ -3,7 +3,8 @@
 A fully written in Rust Neural Network - supports training and running!
 
 > [!NOTE]
-> The website page for the demo has been generated using an AI model. Nothing else has.
+> The website page for the demo has been generated using an AI model. Nothing else has been.
+> 
 > The interface is minimal and isn't the main focus of this project :)
 
 ## Features ✨
@@ -16,7 +17,9 @@ A fully written in Rust Neural Network - supports training and running!
 
 ## Demo:
 
-[will be uploaded]
+
+https://github.com/user-attachments/assets/44fff7fd-0097-4930-acc0-9abd4147177b
+
 
 Or you can run it yourself from the release tab or run:
 
@@ -26,7 +29,9 @@ cd demo && cargo run --release
 
 ## MNIST Training Demo:
 
-[will be uploaded]
+
+https://github.com/user-attachments/assets/a6d6982c-6a7e-4ce8-9586-da01ae1ba4d2
+
 
 Or you can run it yourself with:
 
