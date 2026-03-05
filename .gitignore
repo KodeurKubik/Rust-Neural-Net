@@ -1,2 +1,6 @@
 /target
 .DS_Store
+/neuralnet-demo
+neuralnet.zip
+
+./mnist/model.bin

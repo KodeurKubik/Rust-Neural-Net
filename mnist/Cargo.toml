@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 neuralnet = { path = "../" }
 image = "0.25"
+ratatui = "0.30"

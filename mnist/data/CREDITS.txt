@@ -1,0 +1,2 @@
+Credits for test.parquet and train.parquet:
+https://huggingface.co/datasets/ylecun/mnist

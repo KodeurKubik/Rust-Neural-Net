@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MNIST - NeuralNet Playground</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0f0f13;
+        --surface: #1a1a24;
+        --surface2: #22222f;
+        --border: #2e2e40;
+        --accent: #7c6af7;
+        --accent2: #a78bfa;
+        --text: #e8e8f0;
+        --muted: #6b6b80;
+        --success: #34d399;
+        --sidebar-w: 220px;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, sans-serif;
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ── Sidebar (identical to index) ── */
+      nav {
+        width: var(--sidebar-w);
+        flex-shrink: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem 1rem;
+        gap: 2rem;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+      }
+      .nav-brand {
+        padding: 0 0.5rem;
+      }
+      .nav-brand h2 {
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, var(--accent2), var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .nav-brand p {
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .nav-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .nav-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        padding: 0 0.5rem;
+        margin-bottom: 0.25rem;
+      }
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--muted);
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+      .nav-link:hover {
+        color: var(--text);
+        background: var(--surface2);
+      }
+      .nav-link.active {
+        color: var(--accent2);
+        background: rgba(124, 106, 247, 0.12);
+      }
+      .nav-link .icon {
+        font-size: 1rem;
+        width: 1.2rem;
+        text-align: center;
+      }
+
+      /* ── Main ── */
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 3rem;
+        gap: 2rem;
+      }
+
+      .page-header h1 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .page-header p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+      }
+
+      .demo {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      /* ── Canvas ── */
+      .canvas-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+      .canvas-wrap {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1.5px solid var(--border);
+        box-shadow: 0 0 40px rgba(124, 106, 247, 0.08);
+      }
+      #drawCanvas {
+        display: block;
+        background: #000;
+        cursor: crosshair;
+        touch-action: none;
+      }
+      .canvas-hint {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .btn-row {
+        display: flex;
+        gap: 0.75rem;
+      }
+      button {
+        padding: 0.55rem 1.4rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      #clearBtn {
+        background: var(--surface2);
+        color: var(--muted);
+        border: 1.5px solid var(--border);
+      }
+      #clearBtn:hover {
+        color: var(--text);
+        border-color: var(--muted);
+      }
+      .preview-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      #previewCanvas {
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        image-rendering: pixelated;
+      }
+      .preview-label {
+        font-size: 0.7rem;
+        color: var(--muted);
+      }
+
+      /* ── Results ── */
+      .results-panel {
+        width: 260px;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: 16px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .results-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .prediction-big {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 1rem;
+        background: var(--surface2);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+      .prediction-digit {
+        font-size: 3.5rem;
+        font-weight: 800;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--accent2), var(--success));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .prediction-conf {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .bars {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+      }
+      .bar-label {
+        width: 1rem;
+        text-align: center;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .bar-track {
+        flex: 1;
+        height: 6px;
+        background: var(--surface2);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--border);
+        transition:
+          width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+          background 0.2s;
+      }
+      .bar-fill.top {
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+      }
+      .bar-pct {
+        width: 2.5rem;
+        text-align: right;
+        color: var(--muted);
+      }
+      #errorMsg {
+        display: none;
+        font-size: 0.78rem;
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.08);
+        border: 1px solid rgba(248, 113, 113, 0.2);
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-brand">
+        <h2>NeuralNet Playground</h2>
+        <p>Kubik's models</p>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">Pages</span>
+        <a href="index.html" class="nav-link">
+          <span class="icon">⌂</span> Home
+        </a>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">Projects</span>
+        <a href="mnist.html" class="nav-link active">
+          <span class="icon">✏</span> MNIST
+        </a>
+      </div>
+    </nav>
+
+    <main>
+      <div class="page-header">
+        <h1>MNIST Classifier</h1>
+        <p>
+          Draw a digit · hit Predict · see what the model thinks (draw quite
+          large but leave a gap with the border)
+        </p>
+      </div>
+
+      <div class="demo">
+        <div class="canvas-panel">
+          <div class="canvas-wrap">
+            <canvas id="drawCanvas" width="280" height="280"></canvas>
+          </div>
+          <span class="canvas-hint">Draw with mouse or touch</span>
+          <div class="btn-row">
+            <button id="clearBtn">Clear</button>
+          </div>
+          <div class="preview-wrap">
+            <canvas
+              id="previewCanvas"
+              width="28"
+              height="28"
+              style="width: 56px; height: 56px"
+            ></canvas>
+            <span class="preview-label">28×28 input to model</span>
+          </div>
+        </div>
+
+        <div class="results-panel">
+          <span class="results-title">Prediction</span>
+          <div class="prediction-big">
+            <span class="prediction-digit" id="predDigit">—</span>
+            <span class="prediction-conf" id="predConf"
+              >draw something first</span
+            >
+          </div>
+          <div id="errorMsg"></div>
+          <div class="bars" id="barsContainer"></div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const canvas = document.getElementById("drawCanvas");
+      const ctx = canvas.getContext("2d");
+      const preview = document.getElementById("previewCanvas");
+      const pctx = preview.getContext("2d");
+
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 22;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      let drawing = false,
+        lastX = 0,
+        lastY = 0,
+        hasDrawing = false;
+
+      function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return [src.clientX - r.left, src.clientY - r.top];
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        drawing = true;
+        [lastX, lastY] = pos(e);
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        hasDrawing = true;
+        updatePreview();
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (!drawing) return;
+        const [x, y] = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        [lastX, lastY] = [x, y];
+        hasDrawing = true;
+        updatePreview();
+      });
+      ["pointerup", "pointerleave"].forEach((ev) =>
+        canvas.addEventListener(ev, () => (drawing = false)),
+      );
+
+      function updatePreview() {
+        pctx.drawImage(canvas, 0, 0, 28, 28);
+      }
+
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        ctx.clearRect(0, 0, 280, 280);
+        pctx.clearRect(0, 0, 28, 28);
+        hasDrawing = false;
+        resetResults();
+        hideError();
+      });
+
+      function getPixels() {
+        const off = document.createElement("canvas");
+        off.width = off.height = 28;
+        const oc = off.getContext("2d");
+        oc.drawImage(canvas, 0, 0, 28, 28);
+        const raw = oc.getImageData(0, 0, 28, 28).data;
+
+        let minX = 28,
+          minY = 28,
+          maxX = 0,
+          maxY = 0;
+        for (let y = 0; y < 28; y++)
+          for (let x = 0; x < 28; x++)
+            if (raw[(y * 28 + x) * 4] > 10) {
+              minX = Math.min(minX, x);
+              maxX = Math.max(maxX, x);
+              minY = Math.min(minY, y);
+              maxY = Math.max(maxY, y);
+            }
+
+        const dx = Math.round(14 - (minX + maxX) / 2);
+        const dy = Math.round(14 - (minY + maxY) / 2);
+
+        const off2 = document.createElement("canvas");
+        off2.width = off2.height = 28;
+        const oc2 = off2.getContext("2d");
+        oc2.drawImage(off, dx, dy);
+
+        pctx.clearRect(0, 0, 28, 28);
+        pctx.drawImage(off2, 0, 0);
+
+        const centered = oc2.getImageData(0, 0, 28, 28).data;
+        const pixels = [];
+        for (let i = 0; i < centered.length; i += 4)
+          pixels.push(centered[i] / 255);
+        return pixels;
+      }
+
+      function showResults({ digit, confidence, probabilities }) {
+        document.getElementById("predDigit").textContent = digit ?? "?";
+        document.getElementById("predConf").textContent =
+          confidence != null
+            ? `${(confidence * 100).toFixed(1)}% confidence`
+            : "";
+        if (!probabilities?.length) return;
+        const c = document.getElementById("barsContainer");
+        c.innerHTML = "";
+        for (let i = 0; i < 10; i++) {
+          const pct = (probabilities[i] * 100).toFixed(1);
+          const row = document.createElement("div");
+          row.className = "bar-row";
+          row.innerHTML = `<span class="bar-label" style="${i === digit ? "color:var(--accent2)" : ""}">${i}</span>
+        <div class="bar-track"><div class="bar-fill ${i === digit ? "top" : ""}" style="width:${pct}%"></div></div>
+        <span class="bar-pct">${pct}%</span>`;
+          c.appendChild(row);
+        }
+      }
+
+      function resetResults() {
+        document.getElementById("predDigit").textContent = "—";
+        document.getElementById("predConf").textContent =
+          "draw something first";
+        renderEmptyBars();
+      }
+
+      let requesting = false;
+      let dirty = false; // was canvas edited since last prediction?
+
+      // mark dirty on any drawing
+      canvas.addEventListener("pointerdown", () => {
+        dirty = true;
+      });
+      canvas.addEventListener("pointermove", () => {
+        if (drawing) dirty = true;
+      });
+
+      // clear button also resets dirty
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        ctx.clearRect(0, 0, 280, 280);
+        pctx.clearRect(0, 0, 28, 28);
+        hasDrawing = false;
+        dirty = false;
+        resetResults();
+        hideError();
+      });
+
+      async function runPrediction() {
+        if (!hasDrawing || !dirty || requesting) return;
+        requesting = true;
+        dirty = false;
+        hideError();
+        try {
+          const res = await fetch("/predict/mnist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pixels: getPixels() }),
+          });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
+          showResults(await res.json());
+        } catch (err) {
+          showError(err.message);
+          dirty = true; // retry on next tick
+        } finally {
+          requesting = false;
+        }
+      }
+
+      setInterval(runPrediction, 300);
+
+      function renderEmptyBars() {
+        const c = document.getElementById("barsContainer");
+        c.innerHTML = "";
+        for (let i = 0; i < 10; i++) {
+          const row = document.createElement("div");
+          row.className = "bar-row";
+          row.innerHTML = `<span class="bar-label">${i}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>
+        <span class="bar-pct">—</span>`;
+          c.appendChild(row);
+        }
+      }
+
+      function showError(msg) {
+        const el = document.getElementById("errorMsg");
+        el.textContent = `⚠ ${msg}`;
+        el.style.display = "block";
+      }
+      function hideError() {
+        document.getElementById("errorMsg").style.display = "none";
+      }
+
+      renderEmptyBars();
+    </script>
+  </body>
+</html>
